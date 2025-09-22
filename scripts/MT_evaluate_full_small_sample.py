@@ -23,7 +23,7 @@ mp.set_start_method('spawn', force=True)
 root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(root_dir)
 
-from scripts.MTI_multitask import setup_logger, set_seed, calculate_metrics, format_metrics_table, MultiTaskTMI, CSVDataset
+from scripts.MTI_Net import setup_logger, set_seed, calculate_metrics, format_metrics_table, MultiTaskTMI, CSVDataset
 
 def load_pretrained_model(model_path, device, input_size, num_tasks):
     """加载预训练模型"""

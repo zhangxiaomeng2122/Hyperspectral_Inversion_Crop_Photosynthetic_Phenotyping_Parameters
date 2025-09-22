@@ -18,10 +18,10 @@ from torch.cuda.amp import GradScaler, autocast
 import time
 
 
-# µ¼Èë MultiTaskViT Ä£ĞÍ
+# å¯¼å…¥ MultiTaskViT æ¨¡å‹
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-# µ¼Èë×Ô¶¨ÒåÄ£¿é
+# å¯¼å…¥è‡ªå®šä¹‰æ¨¡å—
 root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(root_dir)
 from utils.plot_setting import setfig
@@ -33,42 +33,42 @@ from mt_hyperspectral.training.trainer import get_predictions_and_targets
 # 1. BandwiseAffineLayer
 class BandwiseAffineLayer(nn.Module):#BandwiseAffineLayer 
     """
-    ÎªÃ¿¸ö²¨¶ÎÓ¦ÓÃ¶ÀÁ¢µÄÈ¨ÖØºÍÆ«ÖÃ£¬ÊµÏÖ²¨¶ÎÑ¡Ôñ¹¦ÄÜ¡£
-    ¶ÔÃ¿¸ö²¨¶ÎÓ¦ÓÃ¶ÀÁ¢µÄ1x1¾í»ı£¬ÑÏ¸ñ°´ÕÕÂÛÎÄ¹«Ê½ÊµÏÖ¡£
+    ä¸ºæ¯ä¸ªæ³¢æ®µåº”ç”¨ç‹¬ç«‹çš„æƒé‡å’Œåç½®ï¼Œå®ç°æ³¢æ®µé€‰æ‹©åŠŸèƒ½ã€‚
+    å¯¹æ¯ä¸ªæ³¢æ®µåº”ç”¨ç‹¬ç«‹çš„1x1å·ç§¯ï¼Œä¸¥æ ¼æŒ‰ç…§è®ºæ–‡å…¬å¼å®ç°ã€‚
     """
     def __init__(self, num_bands):
         super(BandwiseAffineLayer, self).__init__()
         self.num_bands = num_bands
-        # ¸Ä½øÈ¨ÖØ³õÊ¼»¯
+        # æ”¹è¿›æƒé‡åˆå§‹åŒ–
         self.weights = nn.Parameter(torch.ones(num_bands) + 0.01 * torch.randn(num_bands))
         self.bias = nn.Parameter(torch.zeros(num_bands))
-        # Ìí¼ÓÅúÁ¿¹éÒ»»¯£¬Ìá¸ßÑµÁ·ÎÈ¶¨ĞÔ
+        # æ·»åŠ æ‰¹é‡å½’ä¸€åŒ–ï¼Œæé«˜è®­ç»ƒç¨³å®šæ€§
         self.batch_norm = nn.BatchNorm1d(num_bands)
         
     def forward(self, x):
-        # ÏÈ½øĞĞÅúÁ¿¹éÒ»»¯
+        # å…ˆè¿›è¡Œæ‰¹é‡å½’ä¸€åŒ–
         if self.training:
             x = self.batch_norm(x)
-        # È»ºóÓ¦ÓÃÈ¨ÖØºÍÆ«ÖÃ
+        # ç„¶ååº”ç”¨æƒé‡å’Œåç½®
         weighted_bands = x * self.weights + self.bias
         return weighted_bands
 
     def get_band_importance(self):
-        """»ñÈ¡Ã¿¸ö²¨¶ÎµÄÖØÒªĞÔÈ¨ÖØ"""
-        # ·µ»ØÈ¨ÖØ¾ø¶ÔÖµ×÷Îª²¨¶ÎÖØÒªĞÔ
+        """è·å–æ¯ä¸ªæ³¢æ®µçš„é‡è¦æ€§æƒé‡"""
+        # è¿”å›æƒé‡ç»å¯¹å€¼ä½œä¸ºæ³¢æ®µé‡è¦æ€§
         return torch.abs(self.weights).detach().cpu().numpy()
 
-# 2. ¶¨ÒåÓ²ãĞÖµÑ¡Ôñ»úÖÆ
+# 2. å®šä¹‰ç¡¬é˜ˆå€¼é€‰æ‹©æœºåˆ¶
 class TopKBandGatingLayer(nn.Module):
     """
-    »ùÓÚBandwiseIndependentConvÑ§Ï°µÄÈ¨ÖØ½øĞĞ²¨¶ÎÑ¡Ôñ
-    ÑÏ¸ñ°´ÕÕÂÛÎÄÖĞµÄÓ²ãĞÖµ·½·¨ÊµÏÖ
+    åŸºäºBandwiseIndependentConvå­¦ä¹ çš„æƒé‡è¿›è¡Œæ³¢æ®µé€‰æ‹©
+    ä¸¥æ ¼æŒ‰ç…§è®ºæ–‡ä¸­çš„ç¡¬é˜ˆå€¼æ–¹æ³•å®ç°
     """
     def __init__(self, num_bands, k_bands):
         """
         Args:
-            num_bands: ×Ü²¨¶ÎÊı
-            k_bands: ÒªÑ¡ÔñµÄ²¨¶ÎÊıÁ¿ (ÂÛÎÄÖĞµÄu²ÎÊı)
+            num_bands: æ€»æ³¢æ®µæ•°
+            k_bands: è¦é€‰æ‹©çš„æ³¢æ®µæ•°é‡ (è®ºæ–‡ä¸­çš„uå‚æ•°)
         """
         super(TopKBandGatingLayer, self).__init__()
         self.num_bands = num_bands
@@ -76,43 +76,43 @@ class TopKBandGatingLayer(nn.Module):
             
     def forward(self, x, weights, bias):
         """
-        ÊµÏÖÂÛÎÄÖĞµÄ¹«Ê½(1)
+        å®ç°è®ºæ–‡ä¸­çš„å…¬å¼(1)
         Args:
-            x: ÊäÈëÌØÕ÷ [batch_size, num_bands]
-            weights: ²¨¶ÎÈ¨ÖØ [num_bands]
-            bias: ²¨¶ÎÆ«ÖÃ [num_bands]
+            x: è¾“å…¥ç‰¹å¾ [batch_size, num_bands]
+            weights: æ³¢æ®µæƒé‡ [num_bands]
+            bias: æ³¢æ®µåç½® [num_bands]
         """
-        # ¼ÆËã²¨¶ÎÖØÒªĞÔ
+        # è®¡ç®—æ³¢æ®µé‡è¦æ€§
         band_importance = torch.abs(weights)
         
-        # ¸ù¾İÂÛÎÄÖĞµÄÓ²ãĞÖµ·½·¨£¬»ñÈ¡µÚ(u+1)¸ö×î´óÖµ×÷ÎªãĞÖµ
-        # ¼´ÅÅĞòºó£¬µÚk¸öÎ»ÖÃµÄÖµ£¨´Ó0¿ªÊ¼¼ÆÊı£©
+        # æ ¹æ®è®ºæ–‡ä¸­çš„ç¡¬é˜ˆå€¼æ–¹æ³•ï¼Œè·å–ç¬¬(u+1)ä¸ªæœ€å¤§å€¼ä½œä¸ºé˜ˆå€¼
+        # å³æ’åºåï¼Œç¬¬kä¸ªä½ç½®çš„å€¼ï¼ˆä»0å¼€å§‹è®¡æ•°ï¼‰
         sorted_importance, _ = torch.sort(band_importance, descending=True)
         if self.k_bands < self.num_bands:
-            threshold = sorted_importance[self.k_bands-1]  # µÚk¸ö×î´óÖµ×÷ÎªãĞÖµ
+            threshold = sorted_importance[self.k_bands-1]  # ç¬¬kä¸ªæœ€å¤§å€¼ä½œä¸ºé˜ˆå€¼
         else:
-            threshold = torch.min(band_importance) - 1e-6  # Èç¹ûkµÈÓÚ²¨¶Î×ÜÊı£¬Ñ¡ÔñËùÓĞ²¨¶Î
+            threshold = torch.min(band_importance) - 1e-6  # å¦‚æœkç­‰äºæ³¢æ®µæ€»æ•°ï¼Œé€‰æ‹©æ‰€æœ‰æ³¢æ®µ
         
-        # ´´½¨ÑÚÂë£¬½ö±£ÁôÖØÒªĞÔ´óÓÚãĞÖµµÄ²¨¶Î
+        # åˆ›å»ºæ©ç ï¼Œä»…ä¿ç•™é‡è¦æ€§å¤§äºé˜ˆå€¼çš„æ³¢æ®µ
         mask = (band_importance >= threshold).float()
         
-        # ÊµÏÖ¹«Ê½(1)µÄÑ¡ÔñÂß¼­:
-        # ¶ÔÓÚÖØÒªµÄ²¨¶Î: w_k ¡Ñ x_i,k + b_k
-        # ¶ÔÓÚ²»ÖØÒªµÄ²¨¶Î: b_k
+        # å®ç°å…¬å¼(1)çš„é€‰æ‹©é€»è¾‘:
+        # å¯¹äºé‡è¦çš„æ³¢æ®µ: w_k âŠ™ x_i,k + b_k
+        # å¯¹äºä¸é‡è¦çš„æ³¢æ®µ: b_k
         selected_features = torch.zeros_like(x)
         important_bands = torch.where(mask > 0)[0]
         
-        # ¶ÔÖØÒª²¨¶ÎÓ¦ÓÃÈ¨ÖØºÍÆ«ÖÃ
+        # å¯¹é‡è¦æ³¢æ®µåº”ç”¨æƒé‡å’Œåç½®
         selected_features[:, important_bands] = x[:, important_bands] * weights[important_bands] + bias[important_bands]
         
-        # ¶Ô²»ÖØÒª²¨¶ÎÖ»±£ÁôÆ«ÖÃ
+        # å¯¹ä¸é‡è¦æ³¢æ®µåªä¿ç•™åç½®
         unimportant_bands = torch.where(mask == 0)[0]
         if len(unimportant_bands) > 0:
             selected_features[:, unimportant_bands] = bias[unimportant_bands]
         
         return selected_features, mask
 
-# 3. ¹¹½¨ÍêÕûµÄBHCNN»Ø¹éÄ£ĞÍ
+# 3. æ„å»ºå®Œæ•´çš„BHCNNå›å½’æ¨¡å‹
 class BHCNNRegression(nn.Module):
     def __init__(self, input_size, num_tasks, k_bands=None, threshold=None, hidden_dims=(128, 64)):
         super(BHCNNRegression, self).__init__()
@@ -120,15 +120,15 @@ class BHCNNRegression(nn.Module):
         self.input_size = input_size
         self.num_tasks = num_tasks
         
-        # ²¨¶Î¶ÀÁ¢¾í»ı²ã£¬Ñ§Ï°²¨¶ÎÖØÒªĞÔ
+        # æ³¢æ®µç‹¬ç«‹å·ç§¯å±‚ï¼Œå­¦ä¹ æ³¢æ®µé‡è¦æ€§
         self.bandwise_conv = BandwiseAffineLayer(input_size)
         
-        # ²¨¶ÎÑ¡Ôñ²ã
+        # æ³¢æ®µé€‰æ‹©å±‚
         self.band_selection = TopKBandGatingLayer(input_size, k_bands, threshold)
         
-        # ÌØÕ÷ÌáÈ¡²ã
+        # ç‰¹å¾æå–å±‚
         layers = []
-        prev_dim = input_size  # ÊäÈëÎ¬¶ÈÊÇÑ¡ÔñºóµÄ²¨¶ÎÊı
+        prev_dim = input_size  # è¾“å…¥ç»´åº¦æ˜¯é€‰æ‹©åçš„æ³¢æ®µæ•°
         
         for hidden_dim in hidden_dims:
             layers.append(nn.Linear(prev_dim, hidden_dim))
@@ -138,46 +138,46 @@ class BHCNNRegression(nn.Module):
         
         self.feature_extraction = nn.Sequential(*layers)
         
-        # »Ø¹éÊä³ö²ã
+        # å›å½’è¾“å‡ºå±‚
         self.regression_head = nn.Linear(prev_dim, num_tasks)
         
     def forward(self, x):
-        # Ó¦ÓÃ²¨¶ÎÈ¨ÖØ
+        # åº”ç”¨æ³¢æ®µæƒé‡
         weighted_bands = self.bandwise_conv(x)
         
-        # ÔÚÑµÁ·Ä£Ê½ÏÂ£¬²»½øĞĞÓ²Ñ¡Ôñ£¬ÈÃËùÓĞ²¨¶Î²ÎÓëÑµÁ·
+        # åœ¨è®­ç»ƒæ¨¡å¼ä¸‹ï¼Œä¸è¿›è¡Œç¡¬é€‰æ‹©ï¼Œè®©æ‰€æœ‰æ³¢æ®µå‚ä¸è®­ç»ƒ
         if self.training:
             features = weighted_bands
         else:
-            # ÔÚÍÆÀíÄ£Ê½ÏÂ£¬Ó¦ÓÃÓ²Ñ¡Ôñ
+            # åœ¨æ¨ç†æ¨¡å¼ä¸‹ï¼Œåº”ç”¨ç¡¬é€‰æ‹©
             features, _ = self.band_selection(x, self.bandwise_conv.weights)
         
-        # ÌØÕ÷ÌáÈ¡
+        # ç‰¹å¾æå–
         features = self.feature_extraction(features)
         
-        # »Ø¹éÊä³ö
+        # å›å½’è¾“å‡º
         outputs = self.regression_head(features)
         
         return outputs
     
     def get_selected_bands(self):
-        """»ñÈ¡Ä£ĞÍÑ¡ÔñµÄ²¨¶ÎË÷Òı"""
+        """è·å–æ¨¡å‹é€‰æ‹©çš„æ³¢æ®µç´¢å¼•"""
         band_importance = self.bandwise_conv.get_band_importance()
         
         if hasattr(self.band_selection, 'k_bands') and self.band_selection.k_bands is not None:
-            # Èç¹ûÉèÖÃÁËk_bands£¬·µ»Ø×îÖØÒªµÄk¸ö²¨¶Î
+            # å¦‚æœè®¾ç½®äº†k_bandsï¼Œè¿”å›æœ€é‡è¦çš„kä¸ªæ³¢æ®µ
             top_indices = np.argsort(band_importance)[::-1][:self.band_selection.k_bands]
             return top_indices
         else:
-            # »ùÓÚãĞÖµ·µ»ØÖØÒª²¨¶Î
+            # åŸºäºé˜ˆå€¼è¿”å›é‡è¦æ³¢æ®µ
             threshold = self.band_selection.threshold
             selected_indices = np.where(band_importance > threshold)[0]
             return selected_indices
             
-# 4. ½« BandwiseAffineLayer Óë MultiTaskViT ¼¯³ÉµÄĞÂÄ£ĞÍ£¬²ÉÓÃCFLË«·ÖÖ§¼Ü¹¹
+# 4. å°† BandwiseAffineLayer ä¸ MultiTaskViT é›†æˆçš„æ–°æ¨¡å‹ï¼Œé‡‡ç”¨CFLåŒåˆ†æ”¯æ¶æ„
 class BandwiseCFLViT(nn.Module):
     """
-    ½áºÏ²¨¶ÎÑ¡ÔñºÍ ViT Ä£ĞÍµÄ¼Ü¹¹£¬²ÉÓÃCFL (Coarse-to-Fine Loss)Ë«·ÖÖ§½á¹¹
+    ç»“åˆæ³¢æ®µé€‰æ‹©å’Œ ViT æ¨¡å‹çš„æ¶æ„ï¼Œé‡‡ç”¨CFL (Coarse-to-Fine Loss)åŒåˆ†æ”¯ç»“æ„
     """
     def __init__(self, input_size, num_tasks, k_bands=None,
                 hidden_dim=512, num_layers=4, num_heads=8, drop_rate=0.1):
@@ -186,13 +186,13 @@ class BandwiseCFLViT(nn.Module):
         self.input_size = input_size
         self.num_tasks = num_tasks
         
-        # ²¨¶Î¶ÀÁ¢¾í»ı²ã - ¹²ÏíÈ¨ÖØÓÃÓÚÁ½¸ö·ÖÖ§
+        # æ³¢æ®µç‹¬ç«‹å·ç§¯å±‚ - å…±äº«æƒé‡ç”¨äºä¸¤ä¸ªåˆ†æ”¯
         self.bandwise_conv = BandwiseAffineLayer(input_size)
         
-        # Ó²ãĞÖµÑ¡Ôñ²ã - ½öÓÃÓÚÑ¡Ôñ²¨¶Î·ÖÖ§
+        # ç¡¬é˜ˆå€¼é€‰æ‹©å±‚ - ä»…ç”¨äºé€‰æ‹©æ³¢æ®µåˆ†æ”¯
         self.band_selection = TopKBandGatingLayer(input_size, k_bands)
 
-        # ¹²ÏíµÄ ViT »Ø¹éÄ£ĞÍ - ÓÃÓÚÁ½¸ö·ÖÖ§
+        # å…±äº«çš„ ViT å›å½’æ¨¡å‹ - ç”¨äºä¸¤ä¸ªåˆ†æ”¯
         self.vit_model = MultiTaskViT(
             input_size=input_size,
             hidden_dim=hidden_dim,
@@ -202,59 +202,59 @@ class BandwiseCFLViT(nn.Module):
             drop=drop_rate
         )
         
-        # µ±Ç°µü´úÊıºÍ×Üµü´úÊı£¬ÓÃÓÚ¼ÆËã´Öµ½Ï¸ËğÊ§µÄÈ¨ÖØÒò×Ó
+        # å½“å‰è¿­ä»£æ•°å’Œæ€»è¿­ä»£æ•°ï¼Œç”¨äºè®¡ç®—ç²—åˆ°ç»†æŸå¤±çš„æƒé‡å› å­
         self.current_iter = 0
         self.total_iters = 0
         
     def forward(self, x, return_extra=True):
         """
-        Ç°Ïò´«²¥º¯Êı - ÊµÏÖË«·ÖÖ§½á¹¹
+        å‰å‘ä¼ æ’­å‡½æ•° - å®ç°åŒåˆ†æ”¯ç»“æ„
         
         Args:
-            x: ÊäÈëÌØÕ÷ [batch_size, num_bands]
-            return_extra: ÊÇ·ñ·µ»Ø¶îÍâ·ÖÖ§µÄÊä³ö£¬ÑµÁ·Ê±ÎªTrue£¬ÍÆÀíÊ±ÎªFalse
+            x: è¾“å…¥ç‰¹å¾ [batch_size, num_bands]
+            return_extra: æ˜¯å¦è¿”å›é¢å¤–åˆ†æ”¯çš„è¾“å‡ºï¼Œè®­ç»ƒæ—¶ä¸ºTrueï¼Œæ¨ç†æ—¶ä¸ºFalse
             
         Returns:
-            outputs: Ô­Ê¼·ÖÖ§µÄÊä³ö
-            outputs_extra: ¶îÍâ·ÖÖ§µÄÊä³ö(Èç¹ûreturn_extraÎªTrue)
+            outputs: åŸå§‹åˆ†æ”¯çš„è¾“å‡º
+            outputs_extra: é¢å¤–åˆ†æ”¯çš„è¾“å‡º(å¦‚æœreturn_extraä¸ºTrue)
         """
-        # È«²¨¶Î·ÖÖ§ - Ó¦ÓÃ²¨¶ÎÈ¨ÖØºóÖ±½ÓÊäÈë»Ø¹éÄ£ĞÍ
+        # å…¨æ³¢æ®µåˆ†æ”¯ - åº”ç”¨æ³¢æ®µæƒé‡åç›´æ¥è¾“å…¥å›å½’æ¨¡å‹
         weighted_bands = self.bandwise_conv(x)
         coarse_output = self.vit_model(weighted_bands)
         
-        # ²¨¶ÎÑ¡Ôñ·ÖÖ§ - Ó¦ÓÃ²¨¶ÎÈ¨ÖØºó½øĞĞÓ²ãĞÖµÑ¡Ôñ
+        # æ³¢æ®µé€‰æ‹©åˆ†æ”¯ - åº”ç”¨æ³¢æ®µæƒé‡åè¿›è¡Œç¡¬é˜ˆå€¼é€‰æ‹©
         selected_bands, _ = self.band_selection(x, self.bandwise_conv.weights, self.bandwise_conv.bias)
         fine_output = self.vit_model(selected_bands)
         
         if self.training and return_extra:
-            # ÑµÁ·Ê±£¬·µ»ØÁ½¸ö·ÖÖ§µÄÊä³ö¹©ËğÊ§º¯ÊıÊ¹ÓÃ
-            # fine_output - Ñ¡Ôñ²¨¶ÎºóµÄÊä³ö (¸ü¾«Ï¸µÄÊä³ö)
-            # coarse_output - È«²¨¶ÎÊä³ö (¸ü´Ö²ÚµÄÊä³ö)
+            # è®­ç»ƒæ—¶ï¼Œè¿”å›ä¸¤ä¸ªåˆ†æ”¯çš„è¾“å‡ºä¾›æŸå¤±å‡½æ•°ä½¿ç”¨
+            # fine_output - é€‰æ‹©æ³¢æ®µåçš„è¾“å‡º (æ›´ç²¾ç»†çš„è¾“å‡º)
+            # coarse_output - å…¨æ³¢æ®µè¾“å‡º (æ›´ç²—ç³™çš„è¾“å‡º)
             return fine_output, coarse_output
         else:
-            # ÍÆÀíÊ±Ö»Ê¹ÓÃÑ¡Ôñ²¨¶ÎºóµÄÊä³ö
+            # æ¨ç†æ—¶åªä½¿ç”¨é€‰æ‹©æ³¢æ®µåçš„è¾“å‡º
             return fine_output
     
     def get_selected_bands(self):
-        """»ñÈ¡Ä£ĞÍÑ¡ÔñµÄ²¨¶ÎË÷Òı"""
+        """è·å–æ¨¡å‹é€‰æ‹©çš„æ³¢æ®µç´¢å¼•"""
         band_importance = self.bandwise_conv.get_band_importance()
         
-        # ¸ù¾İ²¨¶ÎÖØÒªĞÔÅÅĞò
+        # æ ¹æ®æ³¢æ®µé‡è¦æ€§æ’åº
         sorted_indices = np.argsort(band_importance)[::-1]
         
-        # ·µ»Ø×îÖØÒªµÄk¸ö²¨¶Î
+        # è¿”å›æœ€é‡è¦çš„kä¸ªæ³¢æ®µ
         return sorted_indices[:self.band_selection.k_bands]
     
     def set_iteration_params(self, current, total):
-        """ÉèÖÃµ±Ç°µü´úºÍ×Üµü´úÊı£¬ÓÃÓÚ¼ÆËã´Öµ½Ï¸ËğÊ§È¨ÖØ"""
+        """è®¾ç½®å½“å‰è¿­ä»£å’Œæ€»è¿­ä»£æ•°ï¼Œç”¨äºè®¡ç®—ç²—åˆ°ç»†æŸå¤±æƒé‡"""
         self.current_iter = current
         self.total_iters = total
 
-# Ìí¼Ó´Öµ½Ï¸ËğÊ§º¯Êı
+# æ·»åŠ ç²—åˆ°ç»†æŸå¤±å‡½æ•°
 class CoarseToFineLoss(nn.Module):
     """
-    ÊµÏÖÂÛÎÄÖĞµÄ´Öµ½Ï¸ËğÊ§º¯Êı
-    Ëæ×ÅÑµÁ·½øĞĞ£¬Öğ²½½«½¹µã´Ó´ÖÁ£¶ÈËğÊ§(ËùÓĞ²¨¶Î)×ªÒÆµ½Ï¸Á£¶ÈËğÊ§(Ñ¡ÔñµÄ²¨¶Î)
+    å®ç°è®ºæ–‡ä¸­çš„ç²—åˆ°ç»†æŸå¤±å‡½æ•°
+    éšç€è®­ç»ƒè¿›è¡Œï¼Œé€æ­¥å°†ç„¦ç‚¹ä»ç²—ç²’åº¦æŸå¤±(æ‰€æœ‰æ³¢æ®µ)è½¬ç§»åˆ°ç»†ç²’åº¦æŸå¤±(é€‰æ‹©çš„æ³¢æ®µ)
     """
     def __init__(self, base_criterion=nn.MSELoss()):
         super(CoarseToFineLoss, self).__init__()
@@ -262,70 +262,70 @@ class CoarseToFineLoss(nn.Module):
     
     def forward(self, fine_outputs, coarse_outputs, targets, current_iter, total_iters):
         """
-        ¼ÆËã´Öµ½Ï¸ËğÊ§
+        è®¡ç®—ç²—åˆ°ç»†æŸå¤±
         
         Args:
-            fine_outputs: Ï¸Á£¶ÈÊä³ö£¨Ñ¡Ôñ²¨¶Îºó£©
-            coarse_outputs: ´ÖÁ£¶ÈÊä³ö£¨ËùÓĞ²¨¶Î£©
-            targets: Ä¿±êÖµ
-            current_iter: µ±Ç°µü´úÊı
-            total_iters: ×Üµü´úÊı
+            fine_outputs: ç»†ç²’åº¦è¾“å‡ºï¼ˆé€‰æ‹©æ³¢æ®µåï¼‰
+            coarse_outputs: ç²—ç²’åº¦è¾“å‡ºï¼ˆæ‰€æœ‰æ³¢æ®µï¼‰
+            targets: ç›®æ ‡å€¼
+            current_iter: å½“å‰è¿­ä»£æ•°
+            total_iters: æ€»è¿­ä»£æ•°
             
         Returns:
-            loss: ×éºÏËğÊ§
+            loss: ç»„åˆæŸå¤±
         """
-        # ¼ÆËãµ÷ÕûÒò×Ó ¦Ò
+        # è®¡ç®—è°ƒæ•´å› å­ Ïƒ
         sigma = 1.0 - current_iter / total_iters
         
-        # ¼ÆËãÏ¸Á£¶ÈËğÊ§£¨Ñ¡Ôñ²¨¶Îºó£©
+        # è®¡ç®—ç»†ç²’åº¦æŸå¤±ï¼ˆé€‰æ‹©æ³¢æ®µåï¼‰
         fine_loss = self.base_criterion(fine_outputs, targets)
         
-        # ¼ÆËã´ÖÁ£¶ÈËğÊ§£¨ËùÓĞ²¨¶Î£©
+        # è®¡ç®—ç²—ç²’åº¦æŸå¤±ï¼ˆæ‰€æœ‰æ³¢æ®µï¼‰
         coarse_loss = self.base_criterion(coarse_outputs, targets)
         
-        # ×éºÏËğÊ§
+        # ç»„åˆæŸå¤±
         loss = sigma * coarse_loss + (1.0 - sigma) * fine_loss
         
         return loss, coarse_loss, fine_loss, sigma
 
-# ĞŞ¸ÄÑµÁ·º¯ÊıÒÔÖ§³ÖCFLÄ£ĞÍ
+# ä¿®æ”¹è®­ç»ƒå‡½æ•°ä»¥æ”¯æŒCFLæ¨¡å‹
 def train_cfl_model(model, train_loader, val_loader, test_loader, task_names, device, results_dir, logger,
                      num_epochs=500, learning_rate=0.001, weight_decay=1e-5, patience=40, min_delta=0.0005,
                      early_stopping=True, metric_monitor='val_r2'):
-    """ÑµÁ·BHCNN-CFLÄ£ĞÍ£¬Ê¹ÓÃ´Öµ½Ï¸ËğÊ§º¯Êı"""
+    """è®­ç»ƒBHCNN-CFLæ¨¡å‹ï¼Œä½¿ç”¨ç²—åˆ°ç»†æŸå¤±å‡½æ•°"""
     
-    # ÓÅ»¯Æ÷ - Ê¹ÓÃAdamW¶ø·ÇAdam£¬Í¨³£ÓĞ¸üºÃµÄĞÔÄÜ
+    # ä¼˜åŒ–å™¨ - ä½¿ç”¨AdamWè€ŒéAdamï¼Œé€šå¸¸æœ‰æ›´å¥½çš„æ€§èƒ½
     optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     
-    # »ù´¡ËğÊ§º¯Êı - ¿¼ÂÇÊ¹ÓÃSmoothL1LossÒÔÔöÇ¿¶ÔÒì³£ÖµµÄÂ³°ôĞÔ
+    # åŸºç¡€æŸå¤±å‡½æ•° - è€ƒè™‘ä½¿ç”¨SmoothL1Lossä»¥å¢å¼ºå¯¹å¼‚å¸¸å€¼çš„é²æ£’æ€§
     base_criterion = nn.SmoothL1Loss()
     
-    # ´Öµ½Ï¸ËğÊ§º¯Êı
+    # ç²—åˆ°ç»†æŸå¤±å‡½æ•°
     cfl_criterion = CoarseToFineLoss(base_criterion)
     
-    # Ñ§Ï°ÂÊµ÷¶ÈÆ÷
+    # å­¦ä¹ ç‡è°ƒåº¦å™¨
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'max', patience=patience//2, 
                                                    factor=0.5, min_lr=1e-6)
     
-    # ¼ÆËã×ÜÑµÁ·µü´ú´ÎÊı
+    # è®¡ç®—æ€»è®­ç»ƒè¿­ä»£æ¬¡æ•°
     total_iters = num_epochs * len(train_loader)
     current_iter = 0
     
-    # ³õÊ¼»¯ÔçÍ£²ÎÊı
+    # åˆå§‹åŒ–æ—©åœå‚æ•°
     best_val_metric = -float('inf')
     best_epoch = 0
     no_improve_count = 0
     best_model_path = os.path.join(results_dir, 'best_model.pth')
     
-    # ³õÊ¼»¯ÑµÁ·ÀúÊ·¼ÇÂ¼
+    # åˆå§‹åŒ–è®­ç»ƒå†å²è®°å½•
     history = {
         'epoch': [], 'train_loss': [], 'val_loss': [],
         'train_r2': [], 'val_r2': [], 'test_r2': [],
         'train_rmse': [], 'val_rmse': [], 'test_rmse': [],
         'train_rpd': [], 'val_rpd': [], 'test_rpd': [],
-        'lr': [], 'sigma': [],  # Ìí¼Ósigma¼ÇÂ¼
-        'coarse_loss': [], 'fine_loss': [],  # Ìí¼Ó´ÖÏ¸ËğÊ§¼ÇÂ¼
-        # ÈÎÎñÌØ¶¨Ö¸±ê
+        'lr': [], 'sigma': [],  # æ·»åŠ sigmaè®°å½•
+        'coarse_loss': [], 'fine_loss': [],  # æ·»åŠ ç²—ç»†æŸå¤±è®°å½•
+        # ä»»åŠ¡ç‰¹å®šæŒ‡æ ‡
         'task_train_r2': [[] for _ in range(len(task_names))],
         'task_val_r2': [[] for _ in range(len(task_names))],
         'task_test_r2': [[] for _ in range(len(task_names))],
@@ -337,45 +337,45 @@ def train_cfl_model(model, train_loader, val_loader, test_loader, task_names, de
         'task_test_rpd': [[] for _ in range(len(task_names))],
     }
     
-    # ´´½¨Ìİ¶ÈËõ·ÅÆ÷ÓÃÓÚ»ìºÏ¾«¶ÈÑµÁ·
+    # åˆ›å»ºæ¢¯åº¦ç¼©æ”¾å™¨ç”¨äºæ··åˆç²¾åº¦è®­ç»ƒ
     scaler = GradScaler()
     
-    # Ö÷ÑµÁ·Ñ­»·
-    logger.info("¿ªÊ¼ÑµÁ·...")
+    # ä¸»è®­ç»ƒå¾ªç¯
+    logger.info("å¼€å§‹è®­ç»ƒ...")
     start_time = time.time()
 
-    # ¶¨ÒåÑ§Ï°ÂÊÔ¤ÈÈÂÖÊı
+    # å®šä¹‰å­¦ä¹ ç‡é¢„çƒ­è½®æ•°
     warmup_epochs = 10
     
-    # Ìí¼Óµ÷ÊÔĞÅÏ¢
-    logger.info("Ä£ĞÍÑµÁ·ÅäÖÃ:")
-    logger.info(f"Ñ§Ï°ÂÊ: {learning_rate}, È¨ÖØË¥¼õ: {weight_decay}")
-    logger.info(f"Ô¤ÈÈÂÖÊı: {warmup_epochs}, ×ÜÑµÁ·ÂÖÊı: {num_epochs}")
-    logger.info(f"ÅúÁ¿´óĞ¡: {train_loader.batch_size}, ×ÜÑµÁ·Ñù±¾: {len(train_loader.dataset)}")
-    logger.info(f"¹²Ïí²¨¶Î¾í»ı²ãÈ¨ÖØ£¬Ê¹ÓÃ´Öµ½Ï¸ËğÊ§º¯Êı(CFL)½øĞĞÑµÁ·")
-    logger.info(f"Ñ¡Ôñ²¨¶ÎÊıÁ¿: {model.band_selection.k_bands}")
+    # æ·»åŠ è°ƒè¯•ä¿¡æ¯
+    logger.info("æ¨¡å‹è®­ç»ƒé…ç½®:")
+    logger.info(f"å­¦ä¹ ç‡: {learning_rate}, æƒé‡è¡°å‡: {weight_decay}")
+    logger.info(f"é¢„çƒ­è½®æ•°: {warmup_epochs}, æ€»è®­ç»ƒè½®æ•°: {num_epochs}")
+    logger.info(f"æ‰¹é‡å¤§å°: {train_loader.batch_size}, æ€»è®­ç»ƒæ ·æœ¬: {len(train_loader.dataset)}")
+    logger.info(f"å…±äº«æ³¢æ®µå·ç§¯å±‚æƒé‡ï¼Œä½¿ç”¨ç²—åˆ°ç»†æŸå¤±å‡½æ•°(CFL)è¿›è¡Œè®­ç»ƒ")
+    logger.info(f"é€‰æ‹©æ³¢æ®µæ•°é‡: {model.band_selection.k_bands}")
     
     for epoch in range(num_epochs):
-        # ÑµÁ·½×¶Î
+        # è®­ç»ƒé˜¶æ®µ
         model.train()
         train_losses = []
         coarse_losses = []
         fine_losses = []
         sigma_values = []
         
-        # Ñ§Ï°ÂÊÔ¤ÈÈ
+        # å­¦ä¹ ç‡é¢„çƒ­
         if epoch < warmup_epochs:
             for param_group in optimizer.param_groups:
                 param_group['lr'] = learning_rate * ((epoch + 1) / warmup_epochs)
         
         for batch_idx, (features, targets) in enumerate(train_loader):
-            # ¸üĞÂµ±Ç°µü´ú¼ÆÊı
+            # æ›´æ–°å½“å‰è¿­ä»£è®¡æ•°
             current_iter += 1
             
-            # ÉèÖÃÄ£ĞÍµÄµü´ú²ÎÊı
+            # è®¾ç½®æ¨¡å‹çš„è¿­ä»£å‚æ•°
             model.set_iteration_params(current_iter, total_iters)
             
-            # È·±£Êı¾İÔÚÕıÈ·µÄÉè±¸ÉÏ
+            # ç¡®ä¿æ•°æ®åœ¨æ­£ç¡®çš„è®¾å¤‡ä¸Š
             if features.device != device:
                 features = features.to(device)
             if targets.device != device:
@@ -383,40 +383,40 @@ def train_cfl_model(model, train_loader, val_loader, test_loader, task_names, de
                 
             optimizer.zero_grad()
             
-            # Ê¹ÓÃ»ìºÏ¾«¶È²¢Ìí¼ÓÌİ¶È²Ã¼ô
+            # ä½¿ç”¨æ··åˆç²¾åº¦å¹¶æ·»åŠ æ¢¯åº¦è£å‰ª
             with autocast():
-                # Ç°Ïò´«²¥ - »ñÈ¡Ë«·ÖÖ§Êä³ö
-                # fine_output - Ñ¡Ôñ²¨¶ÎºóµÄÊä³ö
-                # coarse_output - È«²¨¶ÎÊä³ö
+                # å‰å‘ä¼ æ’­ - è·å–åŒåˆ†æ”¯è¾“å‡º
+                # fine_output - é€‰æ‹©æ³¢æ®µåçš„è¾“å‡º
+                # coarse_output - å…¨æ³¢æ®µè¾“å‡º
                 fine_output, coarse_output = model(features, return_extra=True)
                 
-                # ¼ÆËãCFLËğÊ§
+                # è®¡ç®—CFLæŸå¤±
                 loss, coarse_loss, fine_loss, sigma = cfl_criterion(
                     fine_output, coarse_output, targets, current_iter, total_iters)
             
-            # ·´Ïò´«²¥
+            # åå‘ä¼ æ’­
             scaler.scale(loss).backward()
             
-            # Ìí¼ÓÌİ¶È²Ã¼ô£¬·ÀÖ¹Ìİ¶È±¬Õ¨
+            # æ·»åŠ æ¢¯åº¦è£å‰ªï¼Œé˜²æ­¢æ¢¯åº¦çˆ†ç‚¸
             scaler.unscale_(optimizer)
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             
             scaler.step(optimizer)
             scaler.update()
             
-            # ¼ÇÂ¼ËğÊ§Öµ
+            # è®°å½•æŸå¤±å€¼
             train_losses.append(loss.item())
             coarse_losses.append(coarse_loss.item())
             fine_losses.append(fine_loss.item())
             sigma_values.append(sigma)
             
-        # ¼ÆËãÆ½¾ùËğÊ§
+        # è®¡ç®—å¹³å‡æŸå¤±
         train_loss = np.mean(train_losses)
         avg_coarse_loss = np.mean(coarse_losses)
         avg_fine_loss = np.mean(fine_losses)
         avg_sigma = np.mean(sigma_values)
         
-        # ÑéÖ¤½×¶Î
+        # éªŒè¯é˜¶æ®µ
         model.eval()
         val_losses = []
         
@@ -427,24 +427,24 @@ def train_cfl_model(model, train_loader, val_loader, test_loader, task_names, de
                 if targets.device != device:
                     targets = targets.to(device)
                     
-                # ÍÆÀíÄ£Ê½Ö»Ê¹ÓÃfineÊä³ö
+                # æ¨ç†æ¨¡å¼åªä½¿ç”¨fineè¾“å‡º
                 outputs = model(features, return_extra=False)
                 loss = base_criterion(outputs, targets)
                 val_losses.append(loss.item())
         
-        # ¼ÆËãÑéÖ¤ËğÊ§
+        # è®¡ç®—éªŒè¯æŸå¤±
         val_loss = np.mean(val_losses)
         
-        # ¼ÆËã¸÷ÏîÖ¸±ê
+        # è®¡ç®—å„é¡¹æŒ‡æ ‡
         train_r2, train_rmse, train_rpd = evaluate_model(model, train_loader, device, len(task_names))
         val_r2, val_rmse, val_rpd = evaluate_model(model, val_loader, device, len(task_names))
         test_r2, test_rmse, test_rpd = evaluate_model(model, test_loader, device, len(task_names))
         
-        # ¸üĞÂÑ§Ï°ÂÊ
+        # æ›´æ–°å­¦ä¹ ç‡
         current_val_metric = np.mean(val_r2) if metric_monitor == 'val_r2' else -np.mean(val_rmse)
         scheduler.step(current_val_metric)
         
-        # ¼ÇÂ¼ÀúÊ·
+        # è®°å½•å†å²
         history['epoch'].append(epoch)
         history['train_loss'].append(train_loss)
         history['val_loss'].append(val_loss)
@@ -462,7 +462,7 @@ def train_cfl_model(model, train_loader, val_loader, test_loader, task_names, de
         history['coarse_loss'].append(avg_coarse_loss)
         history['fine_loss'].append(avg_fine_loss)
         
-        # ¼ÇÂ¼Ã¿¸öÈÎÎñµÄÖ¸±ê
+        # è®°å½•æ¯ä¸ªä»»åŠ¡çš„æŒ‡æ ‡
         for i in range(len(task_names)):
             history['task_train_r2'][i].append(train_r2[i])
             history['task_val_r2'][i].append(val_r2[i])
@@ -474,30 +474,30 @@ def train_cfl_model(model, train_loader, val_loader, test_loader, task_names, de
             history['task_val_rpd'][i].append(val_rpd[i])
             history['task_test_rpd'][i].append(test_rpd[i])
         
-        # ´òÓ¡½ø¶È
+        # æ‰“å°è¿›åº¦
         if (epoch+1) % 10 == 0 or epoch == 0:
             logger.info(f"Epoch {epoch+1}/{num_epochs} - "
-                      f"ÑµÁ·ËğÊ§: {train_loss:.4f}, ÑéÖ¤ËğÊ§: {val_loss:.4f}, "
-                      f"´ÖËğÊ§: {avg_coarse_loss:.4f}, Ï¸ËğÊ§: {avg_fine_loss:.4f}, ¦Ò: {avg_sigma:.4f}, "
-                      f"ÑµÁ·R0…5: {np.mean(train_r2):.4f}, ÑéÖ¤R0…5: {np.mean(val_r2):.4f}")
+                      f"è®­ç»ƒæŸå¤±: {train_loss:.4f}, éªŒè¯æŸå¤±: {val_loss:.4f}, "
+                      f"ç²—æŸå¤±: {avg_coarse_loss:.4f}, ç»†æŸå¤±: {avg_fine_loss:.4f}, Ïƒ: {avg_sigma:.4f}, "
+                      f"è®­ç»ƒR??: {np.mean(train_r2):.4f}, éªŒè¯R??: {np.mean(val_r2):.4f}")
         
-        # ¸ñÊ½»¯²¢Êä³öÖ¸±ê
+        # æ ¼å¼åŒ–å¹¶è¾“å‡ºæŒ‡æ ‡
         logger.info(f"Epoch {epoch + 1}/{num_epochs}")
-        logger.info(f"ÑµÁ·ËğÊ§: {train_loss:.4f}, ÑéÖ¤ËğÊ§: {val_loss:.4f}")
+        logger.info(f"è®­ç»ƒæŸå¤±: {train_loss:.4f}, éªŒè¯æŸå¤±: {val_loss:.4f}")
 
-        logger.info("ÑµÁ·¼¯Ö¸±ê:")
+        logger.info("è®­ç»ƒé›†æŒ‡æ ‡:")
         logger.info(format_metrics_table(task_names, train_r2, train_rmse, train_rpd))
         
-        logger.info("ÑéÖ¤¼¯Ö¸±ê:")
+        logger.info("éªŒè¯é›†æŒ‡æ ‡:")
         logger.info(format_metrics_table(task_names, val_r2, val_rmse, val_rpd))
         
-        # ±£´æ×î¼ÑÄ£ĞÍ
+        # ä¿å­˜æœ€ä½³æ¨¡å‹
         if current_val_metric > best_val_metric + min_delta:
             best_val_metric = current_val_metric
             best_epoch = epoch
             no_improve_count = 0
             
-            # ±£´æ×î¼ÑÄ£ĞÍ
+            # ä¿å­˜æœ€ä½³æ¨¡å‹
             torch.save({
                 'epoch': epoch,
                 'model_state_dict': model.state_dict(),
@@ -509,49 +509,49 @@ def train_cfl_model(model, train_loader, val_loader, test_loader, task_names, de
                 'total_iters': total_iters
             }, best_model_path)
             
-            logger.info(f"Epoch {epoch+1}: ±£´æ×î¼ÑÄ£ĞÍ£¬ÑéÖ¤ {metric_monitor}: {best_val_metric:.4f}")
+            logger.info(f"Epoch {epoch+1}: ä¿å­˜æœ€ä½³æ¨¡å‹ï¼ŒéªŒè¯ {metric_monitor}: {best_val_metric:.4f}")
         else:
             no_improve_count += 1
         
-        # ÔçÍ£¼ì²é
+        # æ—©åœæ£€æŸ¥
         if early_stopping and no_improve_count >= patience:
-            logger.info(f"ÔçÍ£´¥·¢£¡{patience}¸öÂÖ´ÎÄÚÎŞ¸ÄÉÆ¡£")
+            logger.info(f"æ—©åœè§¦å‘ï¼{patience}ä¸ªè½®æ¬¡å†…æ— æ”¹å–„ã€‚")
             break
     
-    # ¼ÓÔØ×î¼ÑÄ£ĞÍ
+    # åŠ è½½æœ€ä½³æ¨¡å‹
     checkpoint = torch.load(best_model_path)
     model.load_state_dict(checkpoint['model_state_dict'])
     
-    # ¼ÆËã×î¼ÑÄ£ĞÍµÄËùÓĞÖ¸±ê
+    # è®¡ç®—æœ€ä½³æ¨¡å‹çš„æ‰€æœ‰æŒ‡æ ‡
     train_r2, train_rmse, train_rpd = evaluate_model(model, train_loader, device, len(task_names))
     val_r2, val_rmse, val_rpd = evaluate_model(model, val_loader, device, len(task_names))
     test_r2, test_rmse, test_rpd = evaluate_model(model, test_loader, device, len(task_names))
     
-    # ¼ÆËãÑµÁ·Ê±¼ä
+    # è®¡ç®—è®­ç»ƒæ—¶é—´
     total_time = time.time() - start_time
-    logger.info(f"ÑµÁ·Íê³É£¡×ÜÓÃÊ±: {total_time:.2f}Ãë ({total_time/60:.2f}·ÖÖÓ)")
-    logger.info(f"×î¼ÑÄ£ĞÍÀ´×ÔµÚ{best_epoch+1}ÂÖ£¬ÑéÖ¤R0…5: {np.mean(val_r2):.4f}£¬²âÊÔR0…5: {np.mean(test_r2):.4f}")
+    logger.info(f"è®­ç»ƒå®Œæˆï¼æ€»ç”¨æ—¶: {total_time:.2f}ç§’ ({total_time/60:.2f}åˆ†é’Ÿ)")
+    logger.info(f"æœ€ä½³æ¨¡å‹æ¥è‡ªç¬¬{best_epoch+1}è½®ï¼ŒéªŒè¯R??: {np.mean(val_r2):.4f}ï¼Œæµ‹è¯•R??: {np.mean(test_r2):.4f}")
     
-    # »ñÈ¡²¨¶ÎÑ¡Ôñ½á¹û
+    # è·å–æ³¢æ®µé€‰æ‹©ç»“æœ
     band_importance = checkpoint['band_importance']
     selected_bands = checkpoint['selected_bands']
     
-    logger.info(f"²¨¶ÎÑ¡Ôñ½á¹û£ºÑ¡ÔñÁË{len(selected_bands)}¸ö²¨¶Î")
+    logger.info(f"æ³¢æ®µé€‰æ‹©ç»“æœï¼šé€‰æ‹©äº†{len(selected_bands)}ä¸ªæ³¢æ®µ")
     
-    # ±£´æ²¨¶ÎÖØÒªĞÔÊı¾İ
+    # ä¿å­˜æ³¢æ®µé‡è¦æ€§æ•°æ®
     importance_df = pd.DataFrame({
         'Band_Index': np.arange(len(band_importance)),
         'Importance': band_importance
     })
     importance_df.to_csv(os.path.join(results_dir, 'band_importance.csv'), index=False)
     
-    # ±£´æÑ¡ÔñµÄ²¨¶Î
+    # ä¿å­˜é€‰æ‹©çš„æ³¢æ®µ
     selected_df = pd.DataFrame({
         'Selected_Band_Index': selected_bands
     })
     selected_df.to_csv(os.path.join(results_dir, 'selected_bands.csv'), index=False)
     
-    # ±£´æÑµÁ·ÀúÊ·
+    # ä¿å­˜è®­ç»ƒå†å²
     history_df = pd.DataFrame({
         'epoch': history['epoch'],
         'train_loss': history['train_loss'],
@@ -572,21 +572,21 @@ def train_cfl_model(model, train_loader, val_loader, test_loader, task_names, de
     })
     history_df.to_csv(os.path.join(results_dir, 'training_history.csv'), index=False)
     
-    # ²»ÔÙÊ¹ÓÃÒ»¸ö´óµÄfigure£¬¶øÊÇÎªÃ¿¸ö×ÓÍ¼´´½¨µ¥¶ÀµÄfigure²¢ÉèÖÃ¸ñÊ½
+    # ä¸å†ä½¿ç”¨ä¸€ä¸ªå¤§çš„figureï¼Œè€Œæ˜¯ä¸ºæ¯ä¸ªå­å›¾åˆ›å»ºå•ç‹¬çš„figureå¹¶è®¾ç½®æ ¼å¼
     
-    # 1. R0…5 ÇúÏßÍ¼
+    # 1. R?? æ›²çº¿å›¾
     setfig(column=1, x=2.5, y=2.8)
-    plt.plot(history['epoch'], history['train_r2'], label='Train R0…5')
-    plt.plot(history['epoch'], history['val_r2'], label='Val R0…5')
-    plt.plot(history['epoch'], history['test_r2'], label='Test R0…5')
+    plt.plot(history['epoch'], history['train_r2'], label='Train R??')
+    plt.plot(history['epoch'], history['val_r2'], label='Val R??')
+    plt.plot(history['epoch'], history['test_r2'], label='Test R??')
     plt.xlabel('Epoch')
-    plt.ylabel('R0…5')
+    plt.ylabel('R??')
     plt.legend(prop={'size':6, 'family': 'Arial'}, frameon=False) 
     plt.grid(True)
     plt.savefig(os.path.join(results_dir, 'r2_history.pdf'), format='PDF', transparent=True, bbox_inches='tight')
     plt.close()
     
-    # 2. RMSE ÇúÏßÍ¼
+    # 2. RMSE æ›²çº¿å›¾
     setfig(column=1, x=2.5, y=2.8)
     plt.plot(history['epoch'], history['train_rmse'], label='Train RMSE')
     plt.plot(history['epoch'], history['val_rmse'], label='Val RMSE')
@@ -598,7 +598,7 @@ def train_cfl_model(model, train_loader, val_loader, test_loader, task_names, de
     plt.savefig(os.path.join(results_dir, 'rmse_history.pdf'), format='PDF', transparent=True, bbox_inches='tight')
     plt.close()
     
-    # 3. ËğÊ§ÇúÏßÍ¼
+    # 3. æŸå¤±æ›²çº¿å›¾
     setfig(column=1, x=2.5, y=2.8)
     plt.plot(history['epoch'], history['train_loss'], label='Train Loss')
     plt.plot(history['epoch'], history['val_loss'], label='Val Loss')
@@ -609,19 +609,19 @@ def train_cfl_model(model, train_loader, val_loader, test_loader, task_names, de
     plt.savefig(os.path.join(results_dir, 'loss_history.pdf'), format='PDF', transparent=True, bbox_inches='tight')
     plt.close()
     
-    # 4. ²¨¶ÎÖØÒªĞÔÌõĞÎÍ¼
+    # 4. æ³¢æ®µé‡è¦æ€§æ¡å½¢å›¾
     setfig(column=1, x=2.5, y=2.8)
-    # Ê¹ÓÃÄ£ĞÍµÄk_bandsÊôĞÔ»òÖ±½ÓÊ¹ÓÃselected_bandsµÄ³¤¶È
+    # ä½¿ç”¨æ¨¡å‹çš„k_bandså±æ€§æˆ–ç›´æ¥ä½¿ç”¨selected_bandsçš„é•¿åº¦
     k_bands = model.band_selection.k_bands
     selected_bands_set = set(selected_bands[:k_bands])
     
-    # ´´½¨ÑÕÉ«ÁĞ±í£¬±»Ñ¡ÖĞµÄ²¨¶ÎÓÃºìÉ«£¬Î´Ñ¡ÖĞµÄÓÃÀ¶É«
+    # åˆ›å»ºé¢œè‰²åˆ—è¡¨ï¼Œè¢«é€‰ä¸­çš„æ³¢æ®µç”¨çº¢è‰²ï¼Œæœªé€‰ä¸­çš„ç”¨è“è‰²
     colors = ['red' if i in selected_bands_set else 'blue' for i in range(len(band_importance))]
     
-    # »æÖÆ²¨¶ÎÖØÒªĞÔÌõĞÎÍ¼
+    # ç»˜åˆ¶æ³¢æ®µé‡è¦æ€§æ¡å½¢å›¾
     bars = plt.bar(np.arange(len(band_importance)), band_importance, color=colors)
     
-    # Ìí¼ÓÍ¼ÀıËµÃ÷
+    # æ·»åŠ å›¾ä¾‹è¯´æ˜
     red_patch = plt.Rectangle((0, 0), 1, 1, fc="red")
     blue_patch = plt.Rectangle((0, 0), 1, 1, fc="blue")
     plt.legend([red_patch, blue_patch], ['Selected', 'Not Selected'], prop={'size':6, 'family': 'Arial'}, frameon=False)
@@ -633,7 +633,7 @@ def train_cfl_model(model, train_loader, val_loader, test_loader, task_names, de
     plt.savefig(os.path.join(results_dir, 'band_importance.pdf'), format='PDF', transparent=True, bbox_inches='tight')
     plt.close()
     
-    # 5. ´Öµ½Ï¸ËğÊ§ÇúÏßÍ¼
+    # 5. ç²—åˆ°ç»†æŸå¤±æ›²çº¿å›¾
     setfig(column=1, x=2.5, y=2.8)
     plt.plot(history['epoch'], history['coarse_loss'], label='Coarse Loss')
     plt.plot(history['epoch'], history['fine_loss'], label='Fine Loss')
@@ -646,7 +646,7 @@ def train_cfl_model(model, train_loader, val_loader, test_loader, task_names, de
     plt.savefig(os.path.join(results_dir, 'cfl_transition.pdf'), format='PDF', transparent=True, bbox_inches='tight')
     plt.close()
     
-    # ·µ»Ø½á¹û
+    # è¿”å›ç»“æœ
     results = {
         'metrics': {
             'train_r2': train_r2,
@@ -674,76 +674,76 @@ def train_cfl_model(model, train_loader, val_loader, test_loader, task_names, de
         'best_epoch': best_epoch
     }
     
-    # Êä³öÈı¸öÊı¾İ¼¯µÄ¶Ô±È±í¸ñ
-    logger.info("\n========= Èı¸öÊı¾İ¼¯ĞÔÄÜ¶Ô±È =========")
-    logger.info("Êı¾İ¼¯        Æ½¾ùR0…5      Æ½¾ùRMSE    Æ½¾ùRPD")
-    logger.info(f"ÑµÁ·¼¯      {np.mean(train_r2):.4f}     {np.mean(train_rmse):.4f}     {np.mean(train_rpd):.4f}")
-    logger.info(f"ÑéÖ¤¼¯      {np.mean(val_r2):.4f}     {np.mean(val_rmse):.4f}     {np.mean(val_rpd):.4f}")
-    logger.info(f"²âÊÔ¼¯      {np.mean(test_r2):.4f}     {np.mean(test_rmse):.4f}     {np.mean(test_rpd):.4f}")
+    # è¾“å‡ºä¸‰ä¸ªæ•°æ®é›†çš„å¯¹æ¯”è¡¨æ ¼
+    logger.info("\n========= ä¸‰ä¸ªæ•°æ®é›†æ€§èƒ½å¯¹æ¯” =========")
+    logger.info("æ•°æ®é›†        å¹³å‡R??      å¹³å‡RMSE    å¹³å‡RPD")
+    logger.info(f"è®­ç»ƒé›†      {np.mean(train_r2):.4f}     {np.mean(train_rmse):.4f}     {np.mean(train_rpd):.4f}")
+    logger.info(f"éªŒè¯é›†      {np.mean(val_r2):.4f}     {np.mean(val_rmse):.4f}     {np.mean(val_rpd):.4f}")
+    logger.info(f"æµ‹è¯•é›†      {np.mean(test_r2):.4f}     {np.mean(test_rmse):.4f}     {np.mean(test_rpd):.4f}")
     logger.info("========================================")
     
-    # Ìí¼ÓÏêÏ¸ÆÀ¹ÀÖ¸±ê»ã×Ü - ĞŞ¸Ä±íÍ·°üº¬MAPEÁĞ
-    logger.info("\n========= ÏêÏ¸ÈÎÎñÆÀ¹ÀÖ¸±ê =========")
-    logger.info(f"{'²ÎÊı':<10}{'Êı¾İ¼¯':<12}{'R0…5':<10}{'RMSE':<10}{'MAE':<10}{'MAPE(%)':<10}{'½âÊÍ·½²î':<12}")
-    logger.info(f"{'-'*70}")  # ¼Ó³¤·Ö¸ôÏßÒÔÊÊÓ¦ĞÂÔöµÄMAPEÁĞ
+    # æ·»åŠ è¯¦ç»†è¯„ä¼°æŒ‡æ ‡æ±‡æ€» - ä¿®æ”¹è¡¨å¤´åŒ…å«MAPEåˆ—
+    logger.info("\n========= è¯¦ç»†ä»»åŠ¡è¯„ä¼°æŒ‡æ ‡ =========")
+    logger.info(f"{'å‚æ•°':<10}{'æ•°æ®é›†':<12}{'R??':<10}{'RMSE':<10}{'MAE':<10}{'MAPE(%)':<10}{'è§£é‡Šæ–¹å·®':<12}")
+    logger.info(f"{'-'*70}")  # åŠ é•¿åˆ†éš”çº¿ä»¥é€‚åº”æ–°å¢çš„MAPEåˆ—
     
-    # »ñÈ¡ËùÓĞÊı¾İ¼¯µÄÔ¤²âÖµºÍÄ¿±êÖµ£¬È·±£ËüÃÇÆ¥Åä
+    # è·å–æ‰€æœ‰æ•°æ®é›†çš„é¢„æµ‹å€¼å’Œç›®æ ‡å€¼ï¼Œç¡®ä¿å®ƒä»¬åŒ¹é…
     train_preds, train_targets_np = get_predictions_and_targets(model, train_loader)
     val_preds, val_targets_np = get_predictions_and_targets(model, val_loader)
     test_preds, test_targets_np = get_predictions_and_targets(model, test_loader)
     
-    # Ìí¼ÓÒ»¸öĞ¡µÄepsilonÖµ£¬±ÜÃâÔÚ¼ÆËãMAPEÊ±³ıÒÔ0
+    # æ·»åŠ ä¸€ä¸ªå°çš„epsilonå€¼ï¼Œé¿å…åœ¨è®¡ç®—MAPEæ—¶é™¤ä»¥0
     epsilon = 1e-10
     
     for i, target in enumerate(task_names):
-        # ÑµÁ·¼¯ - Ê¹ÓÃÅä¶ÔµÄÔ¤²âÖµºÍÄ¿±êÖµ
+        # è®­ç»ƒé›† - ä½¿ç”¨é…å¯¹çš„é¢„æµ‹å€¼å’Œç›®æ ‡å€¼
         train_r2_i = train_r2[i]
         train_rmse_i = train_rmse[i]
         train_mae = np.mean(np.abs(train_targets_np[:,i] - train_preds[:,i]))
-        # ¼ÆËãÑµÁ·¼¯MAPE
+        # è®¡ç®—è®­ç»ƒé›†MAPE
         # train_mape = np.mean(np.abs((train_targets_np[:,i] - train_preds[:,i]) / (np.abs(train_targets_np[:,i]) + epsilon))) * 100
         absolute_percentage_errors = np.abs((train_targets_np[:,i] - train_preds[:,i]) / (train_targets_np[:,i] + epsilon))
         train_mape = np.mean(absolute_percentage_errors) * 100
         train_ev = 1 - np.var(train_targets_np[:,i] - train_preds[:,i]) / np.var(train_targets_np[:,i])
         
-        # ÑéÖ¤¼¯
+        # éªŒè¯é›†
         val_r2_i = val_r2[i]
         val_rmse_i = val_rmse[i]
         val_mae = np.mean(np.abs(val_targets_np[:,i] - val_preds[:,i]))
-        # ¼ÆËãÑéÖ¤¼¯MAPE
+        # è®¡ç®—éªŒè¯é›†MAPE
         # val_mape = np.mean(np.abs((val_targets_np[:,i] - val_preds[:,i]) / (np.abs(val_targets_np[:,i]) + epsilon))) * 100
         absolute_percentage_errors = np.abs((val_targets_np[:,i] - val_preds[:,i]) / (val_targets_np[:,i] + epsilon))
         val_mape = np.mean(absolute_percentage_errors) * 100
         val_ev = 1 - np.var(val_targets_np[:,i] - val_preds[:,i]) / np.var(val_targets_np[:,i])
         
-        # ²âÊÔ¼¯
+        # æµ‹è¯•é›†
         test_r2_i = test_r2[i]
         test_rmse_i = test_rmse[i]
         test_mae = np.mean(np.abs(test_targets_np[:,i] - test_preds[:,i]))
-        # ¼ÆËã²âÊÔ¼¯MAPE
+        # è®¡ç®—æµ‹è¯•é›†MAPE
         # test_mape = np.mean(np.abs((test_targets_np[:,i] - test_preds[:,i]) / (np.abs(test_targets_np[:,i]) + epsilon))) * 100
         absolute_percentage_errors = np.abs((test_targets_np[:,i] - test_preds[:,i]) / (test_targets_np[:,i] + epsilon))
         test_mape = np.mean(absolute_percentage_errors) * 100
         test_ev = 1 - np.var(test_targets_np[:,i] - test_preds[:,i]) / np.var(test_targets_np[:,i])
         
-        # ¼ÇÂ¼µ½ÈÕÖ¾ - Ôö¼ÓMAPEÁĞ
-        logger.info(f"{target:<10}{'ÑµÁ·¼¯':<12}{train_r2_i:<10.4f}{train_rmse_i:<10.4f}{train_mae:<10.4f}{train_mape:<10.2f}{train_ev:<12.4f}")
-        logger.info(f"{'':<10}{'ÑéÖ¤¼¯':<12}{val_r2_i:<10.4f}{val_rmse_i:<10.4f}{val_mae:<10.4f}{val_mape:<10.2f}{val_ev:<12.4f}")
-        logger.info(f"{'':<10}{'²âÊÔ¼¯':<12}{test_r2_i:<10.4f}{test_rmse_i:<10.4f}{test_mae:<10.4f}{test_mape:<10.2f}{test_ev:<12.4f}")
+        # è®°å½•åˆ°æ—¥å¿— - å¢åŠ MAPEåˆ—
+        logger.info(f"{target:<10}{'è®­ç»ƒé›†':<12}{train_r2_i:<10.4f}{train_rmse_i:<10.4f}{train_mae:<10.4f}{train_mape:<10.2f}{train_ev:<12.4f}")
+        logger.info(f"{'':<10}{'éªŒè¯é›†':<12}{val_r2_i:<10.4f}{val_rmse_i:<10.4f}{val_mae:<10.4f}{val_mape:<10.2f}{val_ev:<12.4f}")
+        logger.info(f"{'':<10}{'æµ‹è¯•é›†':<12}{test_r2_i:<10.4f}{test_rmse_i:<10.4f}{test_mae:<10.4f}{test_mape:<10.2f}{test_ev:<12.4f}")
         logger.info(f"{'-'*70}")
         
-        # ½«ÕâĞ©¶îÍâÖ¸±êÌí¼Óµ½½á¹ûÖĞ
+        # å°†è¿™äº›é¢å¤–æŒ‡æ ‡æ·»åŠ åˆ°ç»“æœä¸­
         results['metrics'][f'{target}_train_mae'] = train_mae
         results['metrics'][f'{target}_train_ev'] = train_ev
-        results['metrics'][f'{target}_train_mape'] = train_mape  # Ìí¼ÓMAPEµ½½á¹ûÖĞ
+        results['metrics'][f'{target}_train_mape'] = train_mape  # æ·»åŠ MAPEåˆ°ç»“æœä¸­
         results['metrics'][f'{target}_val_mae'] = val_mae
         results['metrics'][f'{target}_val_ev'] = val_ev
-        results['metrics'][f'{target}_val_mape'] = val_mape  # Ìí¼ÓMAPEµ½½á¹ûÖĞ
+        results['metrics'][f'{target}_val_mape'] = val_mape  # æ·»åŠ MAPEåˆ°ç»“æœä¸­
         results['metrics'][f'{target}_test_mae'] = test_mae
         results['metrics'][f'{target}_test_ev'] = test_ev
-        results['metrics'][f'{target}_test_mape'] = test_mape  # Ìí¼ÓMAPEµ½½á¹ûÖĞ
+        results['metrics'][f'{target}_test_mape'] = test_mape  # æ·»åŠ MAPEåˆ°ç»“æœä¸­
     
-    # ¼ÆËãÆ½¾ùMAPE²¢Ìí¼Óµ½½á¹ûÖĞ
+    # è®¡ç®—å¹³å‡MAPEå¹¶æ·»åŠ åˆ°ç»“æœä¸­
     results['metrics']['train_mean_mape'] = np.mean([results['metrics'][f'{target}_train_mape'] for target in task_names])
     results['metrics']['val_mean_mape'] = np.mean([results['metrics'][f'{target}_val_mape'] for target in task_names])
     results['metrics']['test_mean_mape'] = np.mean([results['metrics'][f'{target}_test_mape'] for target in task_names])
@@ -754,16 +754,16 @@ def main():
     config = {
         'device': torch.device('cuda' if torch.cuda.is_available() else 'cpu'),
         
-        # ·¬ÇÑ
+        # ç•ªèŒ„
         'csv_path': 'data/processed/subsets/dataset_max15_per_class.csv',
         'target_cols': ['RUE', 'Pn', 'Gs', 'Ci', 'Tr', 'Ci-Ca', 'WUE', 'iWUE', 'Pmax', 'Rd', 'Ic', 'SPAD', 'LAW'],
-        'results_dir': os.path.join('results', 'MT_bandwise_cfl_selection'),  # ĞŞ¸ÄÄ¿Â¼Ãû
+        'results_dir': os.path.join('results', 'MT_bandwise_cfl_selection'),  # ä¿®æ”¹ç›®å½•å
         
-        # Ë®µ¾
+        # æ°´ç¨»
         # 'csv_path': 'data/processed/Rice subsets/rice dataset_all_per_class.csv',
-        # 'target_cols': ['SPAD','Pn', 'LNC', 'Chl-a', 'Chl-b','LAW', 'Cx', 'Chl'],  # Rice 8¸öË®µ¾²ÎÊı
-        # 'results_dir': os.path.join('results', 'Rice_bandwise_cfl_selection'),  # ĞŞ¸ÄÄ¿Â¼Ãû
-        'feature_cols': list(range(3, 276)),  # 273¸ö²¨¶Î
+        # 'target_cols': ['SPAD','Pn', 'LNC', 'Chl-a', 'Chl-b','LAW', 'Cx', 'Chl'],  # Rice 8ä¸ªæ°´ç¨»å‚æ•°
+        # 'results_dir': os.path.join('results', 'Rice_bandwise_cfl_selection'),  # ä¿®æ”¹ç›®å½•å
+        'feature_cols': list(range(3, 276)),  # 273ä¸ªæ³¢æ®µ
         'batch_size': 32,               
         'num_epochs': 500,             
         'learning_rate': 0.001,        
@@ -778,64 +778,64 @@ def main():
         'k_bands': 20,                
         'drop_rate': 0.15,              
         'threshold': None,
-        # ÔçÍ£²ÎÊı
+        # æ—©åœå‚æ•°
         'early_stopping': True,
         'patience': 20,               
         'min_delta': 0.0005,
         'metric_monitor': 'val_r2',
     }
     
-    # ´´½¨½á¹ûÄ¿Â¼
+    # åˆ›å»ºç»“æœç›®å½•
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     config['results_dir'] = os.path.join(config['results_dir'], timestamp)
     os.makedirs(config['results_dir'], exist_ok=True)
     
-    # ÉèÖÃ¼ÇÂ¼Æ÷ºÍËæ»úÖÖ×Ó
+    # è®¾ç½®è®°å½•å™¨å’Œéšæœºç§å­
     logger = setup_logger(config)
     set_seed(config['seed'])
 
-     # ¼ÓÔØCSVÊı¾İ
-    logger.info(f"´Ó {config['csv_path']} ¼ÓÔØÊı¾İ...")
+     # åŠ è½½CSVæ•°æ®
+    logger.info(f"ä» {config['csv_path']} åŠ è½½æ•°æ®...")
     try:
         data = pd.read_csv(config['csv_path'])
-        logger.info(f"³É¹¦¼ÓÔØÊı¾İ£¬¹² {len(data)} Ìõ¼ÇÂ¼£¬{len(config['feature_cols'])} ¸öÌØÕ÷")
+        logger.info(f"æˆåŠŸåŠ è½½æ•°æ®ï¼Œå…± {len(data)} æ¡è®°å½•ï¼Œ{len(config['feature_cols'])} ä¸ªç‰¹å¾")
     except Exception as e:
-        logger.error(f"¼ÓÔØÊı¾İÊ§°Ü: {str(e)}")
+        logger.error(f"åŠ è½½æ•°æ®å¤±è´¥: {str(e)}")
         return
     
-    # ¼ì²éÄ¿±êÁĞÊÇ·ñ´æÔÚ
+    # æ£€æŸ¥ç›®æ ‡åˆ—æ˜¯å¦å­˜åœ¨
     missing_cols = [col for col in config['target_cols'] if col not in data.columns]
     if missing_cols:
-        logger.error(f"ÒÔÏÂÄ¿±êÁĞ²»´æÔÚÓÚÊı¾İÖĞ: {missing_cols}")
+        logger.error(f"ä»¥ä¸‹ç›®æ ‡åˆ—ä¸å­˜åœ¨äºæ•°æ®ä¸­: {missing_cols}")
         return
     
-    # ÏÔÊ¾¸÷ÁĞµÄ»ù±¾Í³¼ÆĞÅÏ¢
-    logger.info("Ä¿±ê±äÁ¿Í³¼ÆĞÅÏ¢:")
+    # æ˜¾ç¤ºå„åˆ—çš„åŸºæœ¬ç»Ÿè®¡ä¿¡æ¯
+    logger.info("ç›®æ ‡å˜é‡ç»Ÿè®¡ä¿¡æ¯:")
     for col in config['target_cols']:
-        logger.info(f"{col}: ¾ùÖµ={data[col].mean():.4f}, ±ê×¼²î={data[col].std():.4f}, ·¶Î§=[{data[col].min():.4f}, {data[col].max():.4f}]")
+        logger.info(f"{col}: å‡å€¼={data[col].mean():.4f}, æ ‡å‡†å·®={data[col].std():.4f}, èŒƒå›´=[{data[col].min():.4f}, {data[col].max():.4f}]")
     
-    # »®·ÖÊı¾İ¼¯
-    logger.info(f"Ê¹ÓÃ {config['split_method']} ·½·¨½«Êı¾İ¼¯»®·ÖÎªÑµÁ·¼¯¡¢ÑéÖ¤¼¯ºÍ²âÊÔ¼¯")
-    # Ê¹ÓÃsklearn·½·¨½øĞĞÊı¾İ¼¯»®·Ö
+    # åˆ’åˆ†æ•°æ®é›†
+    logger.info(f"ä½¿ç”¨ {config['split_method']} æ–¹æ³•å°†æ•°æ®é›†åˆ’åˆ†ä¸ºè®­ç»ƒé›†ã€éªŒè¯é›†å’Œæµ‹è¯•é›†")
+    # ä½¿ç”¨sklearnæ–¹æ³•è¿›è¡Œæ•°æ®é›†åˆ’åˆ†
     train_indices, temp_indices = train_test_split(
         np.arange(len(data)), 
         test_size=config['val_size'] + config['test_size'], 
         random_state=config['seed']
     )
     
-    # È·¶¨ÑéÖ¤¼¯ºÍ²âÊÔ¼¯µÄ±ÈÀı
+    # ç¡®å®šéªŒè¯é›†å’Œæµ‹è¯•é›†çš„æ¯”ä¾‹
     val_ratio = config['val_size'] / (config['val_size'] + config['test_size'])
     
-    # È»ºó½«ÁÙÊ±¼¯·Ö³ÉÑéÖ¤¼¯ºÍ²âÊÔ¼¯
+    # ç„¶åå°†ä¸´æ—¶é›†åˆ†æˆéªŒè¯é›†å’Œæµ‹è¯•é›†
     val_indices, test_indices = train_test_split(
         temp_indices,
         test_size=1-val_ratio,
         random_state=config['seed']
     )
     
-    logger.info(f"Êı¾İ¼¯»®·Ö: ÑµÁ·¼¯{len(train_indices)}Ñù±¾, ÑéÖ¤¼¯{len(val_indices)}Ñù±¾, ²âÊÔ¼¯{len(test_indices)}Ñù±¾")
+    logger.info(f"æ•°æ®é›†åˆ’åˆ†: è®­ç»ƒé›†{len(train_indices)}æ ·æœ¬, éªŒè¯é›†{len(val_indices)}æ ·æœ¬, æµ‹è¯•é›†{len(test_indices)}æ ·æœ¬")
     
-    # ´´½¨Êı¾İ¼¯
+    # åˆ›å»ºæ•°æ®é›†
     train_dataset = CSVDataset(
         data, 
         config['feature_cols'], 
@@ -863,13 +863,13 @@ def main():
         device=config['device']
     )
     
-    # Êı¾İ¼ÓÔØÆ÷
+    # æ•°æ®åŠ è½½å™¨
     train_loader = DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True)
-    # ÑéÖ¤ºÍ²âÊÔ¼¯Ã÷È·ÉèÖÃshuffle=False£¬È·±£Ô¤²âÖµºÍÄ¿±êÖµË³ĞòÒ»ÖÂ
+    # éªŒè¯å’Œæµ‹è¯•é›†æ˜ç¡®è®¾ç½®shuffle=Falseï¼Œç¡®ä¿é¢„æµ‹å€¼å’Œç›®æ ‡å€¼é¡ºåºä¸€è‡´
     val_loader = DataLoader(val_dataset, batch_size=config['batch_size'], shuffle=False)
     test_loader = DataLoader(test_dataset, batch_size=config['batch_size'], shuffle=False)
     
-    # ¹¹½¨´ø²¨¶ÎÑ¡ÔñµÄ ViT Ä£ĞÍ
+    # æ„å»ºå¸¦æ³¢æ®µé€‰æ‹©çš„ ViT æ¨¡å‹
     input_size = len(config['feature_cols'])
     num_tasks = len(config['target_cols'])
     
@@ -883,16 +883,16 @@ def main():
         drop_rate=config['drop_rate']
     ).to(config['device'])
     
-    # Ê¹ÓÃCFLÑµÁ·º¯Êı
+    # ä½¿ç”¨CFLè®­ç»ƒå‡½æ•°
     training_func = train_cfl_model
-    logger.info("Ê¹ÓÃCFLË«·ÖÖ§Ä£ĞÍ¼Ü¹¹½øĞĞÑµÁ·")
+    logger.info("ä½¿ç”¨CFLåŒåˆ†æ”¯æ¨¡å‹æ¶æ„è¿›è¡Œè®­ç»ƒ")
     
-    # Êä³öÄ£ĞÍ½á¹¹
+    # è¾“å‡ºæ¨¡å‹ç»“æ„
     num_params = count_parameters(model)
-    logger.info(f"Ä£ĞÍ½á¹¹:\n{model}")
-    logger.info(f"Ä£ĞÍ²ÎÊıÁ¿: {num_params}")
+    logger.info(f"æ¨¡å‹ç»“æ„:\n{model}")
+    logger.info(f"æ¨¡å‹å‚æ•°é‡: {num_params}")
     
-    # ÑµÁ·Ä£ĞÍ
+    # è®­ç»ƒæ¨¡å‹
     results = training_func(
         model=model,
         train_loader=train_loader,
@@ -911,30 +911,30 @@ def main():
         metric_monitor=config['metric_monitor']
     )
     
-    # Êä³öÃ¿¸öÈÎÎñµÄĞÔÄÜÖ¸±ê
-    logger.info("\n=================== ¸÷²ÎÊı²âÊÔ¼¯ĞÔÄÜ ===================")
-    logger.info("²ÎÊı         R0…5          RMSE        RPD")
+    # è¾“å‡ºæ¯ä¸ªä»»åŠ¡çš„æ€§èƒ½æŒ‡æ ‡
+    logger.info("\n=================== å„å‚æ•°æµ‹è¯•é›†æ€§èƒ½ ===================")
+    logger.info("å‚æ•°         R??          RMSE        RPD")
     logger.info("-------------------------------------------------")
     metrics = results['metrics']
     for i, task in enumerate(config['target_cols']):
         logger.info(f"{task:<12} {metrics['test_r2'][i]:.4f}     {metrics['test_rmse'][i]:.4f}     {metrics['test_rpd'][i]:.4f}")
     logger.info("-------------------------------------------------")
-    logger.info(f"Æ½¾ù        {metrics['test_mean_r2']:.4f}     {metrics['test_mean_rmse']:.4f}     {metrics['test_mean_rpd']:.4f}")
+    logger.info(f"å¹³å‡        {metrics['test_mean_r2']:.4f}     {metrics['test_mean_rmse']:.4f}     {metrics['test_mean_rpd']:.4f}")
     logger.info("=================================================")
     
-    # Êä³ö²¨¶ÎÑ¡Ôñ½á¹û
-    logger.info("\n=================== ²¨¶ÎÑ¡Ôñ½á¹û ===================")
+    # è¾“å‡ºæ³¢æ®µé€‰æ‹©ç»“æœ
+    logger.info("\n=================== æ³¢æ®µé€‰æ‹©ç»“æœ ===================")
     
-    # »ñÈ¡ÖØÒªµÄ²¨¶ÎË÷Òı£¨Êµ¼ÊÁĞË÷Òı£©
+    # è·å–é‡è¦çš„æ³¢æ®µç´¢å¼•ï¼ˆå®é™…åˆ—ç´¢å¼•ï¼‰
     selected_bands = results['selected_bands']
     actual_indices = [config['feature_cols'][idx] for idx in selected_bands]
     
-    logger.info(f"Ñ¡ÔñÁË{len(selected_bands)}¸ö²¨¶Î")
-    logger.info(f"Ñ¡ÔñµÄ²¨¶ÎË÷Òı: {actual_indices}")
+    logger.info(f"é€‰æ‹©äº†{len(selected_bands)}ä¸ªæ³¢æ®µ")
+    logger.info(f"é€‰æ‹©çš„æ³¢æ®µç´¢å¼•: {actual_indices}")
     logger.info("=================================================")
     
-    logger.info(f"ÑµÁ·Íê³É£¡×î¼ÑÑéÖ¤R0…5: {metrics['val_mean_r2']:.4f}, ²âÊÔR0…5: {metrics['test_mean_r2']:.4f}")
-    print(f"ËùÓĞ½á¹ûÒÑ±£´æµ½: {config['results_dir']}")
+    logger.info(f"è®­ç»ƒå®Œæˆï¼æœ€ä½³éªŒè¯R??: {metrics['val_mean_r2']:.4f}, æµ‹è¯•R??: {metrics['test_mean_r2']:.4f}")
+    print(f"æ‰€æœ‰ç»“æœå·²ä¿å­˜åˆ°: {config['results_dir']}")
 
 if __name__ == "__main__":
     main()

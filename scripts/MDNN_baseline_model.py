@@ -16,7 +16,7 @@ sys.path.append(root_dir)
 
 from utils.plot_setting import setfig
 from mt_hyperspectral.utils.baseset import setup_logger, set_seed
-from mt_hyperspectral.models.deep_learning import create_multioutput_dnn_model, MultiOutputDNNModel
+from mt_hyperspectral.models.MDNN_model import MultiOutputDNNModel
 
 def train_multioutput_dnn(config, logger=None):
     """
