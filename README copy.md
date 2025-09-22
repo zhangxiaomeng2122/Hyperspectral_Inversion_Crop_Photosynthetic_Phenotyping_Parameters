@@ -6,16 +6,16 @@ Pixel-level High-throughput Estimation of Crop Photosynthetic Phenotyping Parame
 
 ```
 data/
-├── Rice_subsets/          # Rice reflectance dataset
-└── Tomato_subsets/        # Tomato reflectance dataset
+├── Rice_subsets/          # 水稻反射率数据集
+└── Tomato_subsets/        # 番茄反射率数据集
 ```
 
 ### 📁 核心模块
 
 ```
 mt_hyperspectral/
-├── data/                  # data process moudle
-│   ├── dataset.py        # Dataset definition and loading
+├── data/                  # 数据处理模块
+│   ├── dataset.py        # 数据集定义和加载
 │   └── preprocessing.py  # 数据预处理工具
 ├── models/               # 模型设计模块  
 │   ├── DNN_ensemble.py   # 深度神经网络集成模型
