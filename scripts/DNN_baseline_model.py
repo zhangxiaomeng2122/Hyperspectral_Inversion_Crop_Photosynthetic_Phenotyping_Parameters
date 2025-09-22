@@ -3,8 +3,8 @@ import torch
 import numpy as np
 import pandas as pd
 import pickle
-from sklearn.metrics import r2_score, mean_squared_error  # 添加缺失的指标计算函数导入
-from sklearn.model_selection import train_test_split  # 添加数据集拆分函数
+from sklearn.metrics import r2_score, mean_squared_error  
+from sklearn.model_selection import train_test_split  
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 import datetime

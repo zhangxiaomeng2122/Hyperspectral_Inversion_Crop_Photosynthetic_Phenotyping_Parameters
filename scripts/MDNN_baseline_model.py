@@ -4,8 +4,6 @@ import time
 import numpy as np
 import pandas as pd
 import torch
-import logging
-from datetime import datetime
 import pickle
 import json
 from sklearn.model_selection import train_test_split
