@@ -30,7 +30,7 @@ from utils.plot_setting import setfig
 
 from mt_hyperspectral.data.dataset import HSIDataset
 from mt_hyperspectral.training.trainer import train_multitask_model
-from mt_hyperspectral.utils.baseset import setup_logger, set_seed, count_parameters
+from utils.baseset import setup_logger, set_seed, count_parameters
 from mt_hyperspectral.data.data_split import random_train_val_test_split, stratified_train_val_test_split
 from mt_hyperspectral.models.MTI_model import MTIEncoderBlock, MultiTaskTMI
 

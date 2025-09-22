@@ -11,7 +11,7 @@ from sklearn.model_selection import train_test_split
 root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(root_dir)
 from utils.plot_setting import setfig
-from mt_hyperspectral.utils.baseset import setup_logger, set_seed
+from utils.baseset import setup_logger, set_seed
 from mt_hyperspectral.models.ML_baseline import (
     PLSRMultiOutputModel, SVRMultiOutputModel, RFMultiOutputModel, 
     XGBMultiOutputModel, MLPMultiOutputModel, MPLSRMultiOutputModel, find_optimal_components

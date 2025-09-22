@@ -21,25 +21,6 @@ def calculate_rpd(y_true, y_pred):
     
     return std_dev / rmse
 
-# def create_ensemble_model(input_dim, output_dim, device):
-#     """
-#     创建集成模型：为每个目标变量创建一个单独的模型
-#     """
-#     models = []
-#     for _ in range(output_dim):
-#         # 创建简单的前馈神经网络
-#         model = nn.Sequential(
-#             nn.Linear(input_dim, 128),
-#             nn.ReLU(),
-#             nn.Dropout(0.3),
-#             nn.Linear(128, 64),
-#             nn.ReLU(),
-#             nn.Dropout(0.2),
-#             nn.Linear(64, 1)
-#         ).to(device)
-#         models.append(model)
-#     return models
-
 def create_ensemble_model(input_size, output_size=15, device='cpu'):
     """创建一个基本集成模型，为每个目标变量训练单独的模型"""
     models = []

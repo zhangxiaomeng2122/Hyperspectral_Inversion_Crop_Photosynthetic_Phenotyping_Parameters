@@ -13,7 +13,7 @@ root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(root_dir)
 
 from utils.plot_setting import setfig
-from mt_hyperspectral.utils.baseset import setup_logger, set_seed
+from utils.baseset import setup_logger, set_seed
 from mt_hyperspectral.models.MDNN_model import MultiOutputDNNModel
 
 def train_multioutput_dnn(config, logger=None):

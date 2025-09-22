@@ -22,7 +22,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(root_dir)
 from utils.plot_setting import setfig
-from mt_hyperspectral.utils.baseset import setup_logger, set_seed, count_parameters
+from utils.baseset import setup_logger, set_seed, count_parameters
 from mt_hyperspectral.data.data_split import random_train_val_test_split, stratified_train_val_test_split
 from scripts.MTI_Net import MultiTaskViT, CSVDataset, evaluate_model, calculate_metrics, format_metrics_table
 from mt_hyperspectral.training.trainer import get_predictions_and_targets
