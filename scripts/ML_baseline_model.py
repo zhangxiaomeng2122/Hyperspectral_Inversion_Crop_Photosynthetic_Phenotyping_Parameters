@@ -3,14 +3,9 @@ import sys
 import time
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
-import logging
-import datetime
 import pickle
 import json
-from sklearn.cross_decomposition import PLSRegression
-from sklearn.model_selection import train_test_split, KFold, GridSearchCV
+from sklearn.model_selection import train_test_split
 
 # 导入自定义模块
 root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))

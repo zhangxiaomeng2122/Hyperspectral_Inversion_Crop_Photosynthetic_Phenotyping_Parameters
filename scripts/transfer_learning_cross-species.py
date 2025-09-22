@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-跨作物迁移学习脚本 - 专注于Pn, SPAD, LAW三参数
-番茄模型 ↔ 水稻模型 迁移学习
-
 支持两种迁移模式:
 1. tomato_to_rice: 番茄三参数模型 → 水稻数据微调
 2. rice_to_tomato: 水稻三参数模型 → 番茄数据微调
