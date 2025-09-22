@@ -11,20 +11,12 @@ import pickle
 import json
 from sklearn.cross_decomposition import PLSRegression
 from sklearn.model_selection import train_test_split, KFold, GridSearchCV
-from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
-from sklearn.preprocessing import StandardScaler
-from sklearn.svm import SVR
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.neural_network import MLPRegressor
-import xgboost as xgb
 
 # 导入自定义模块
 root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(root_dir)
 from utils.plot_setting import setfig
 from mt_hyperspectral.utils.baseset import setup_logger, set_seed
-from mt_hyperspectral.utils.visualization import visualize_feature_importance
-from mt_hyperspectral.utils.io import save_results, save_training_config
 from mt_hyperspectral.models.ML_baseline import (
     PLSRMultiOutputModel, SVRMultiOutputModel, RFMultiOutputModel, 
     XGBMultiOutputModel, MLPMultiOutputModel, MPLSRMultiOutputModel, find_optimal_components
