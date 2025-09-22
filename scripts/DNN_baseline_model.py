@@ -19,11 +19,11 @@ from utils.plot_setting import setfig
 
 from mt_hyperspectral.data.dataset import HSIDataset
 from mt_hyperspectral.models.DNN_ensemble import create_ensemble_model
-from mt_hyperspectral.utils.metrics import evaluate_single_model
+from utils.metrics import evaluate_single_model
 from mt_hyperspectral.training.trainer import safe_format
-from mt_hyperspectral.utils.visualization import create_prediction_plot_with_r2, plot_evaluation_summary, create_prediction_plot_from_loader, create_feature_comparison_plot
-from mt_hyperspectral.utils.io import save_results, save_model
-from mt_hyperspectral.utils.baseset import setup_logger, set_seed, count_parameters
+from utils.visualization import create_prediction_plot_with_r2, plot_evaluation_summary, create_prediction_plot_from_loader, create_feature_comparison_plot
+from utils.io import save_results, save_model
+from utils.baseset import setup_logger, set_seed, count_parameters
 
 def load_and_evaluate_ensemble(config):
     """

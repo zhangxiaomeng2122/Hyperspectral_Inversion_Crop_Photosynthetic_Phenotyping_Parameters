@@ -2,42 +2,39 @@ Pixel-level High-throughput Estimation of Crop Photosynthetic Phenotyping Parame
 
 ## Description
 
-### 📁 数据目录
+### 📁 Data Directory
 
 ```
 data/
-├── Rice_subsets/          # 水稻反射率数据集
-└── Tomato_subsets/        # 番茄反射率数据集
+├── Rice_subsets/          # Rice reflectance dataset
+└── Tomato_subsets/        # Tomato reflectance dataset
 ```
 
-### 📁 核心模块
+### 📁 Core Modules
 
 ```
 mt_hyperspectral/
-├── data/                  # 数据处理模块
-│   ├── dataset.py        # 数据集定义和加载
-│   └── preprocessing.py  # 数据预处理工具
-├── models/               # 模型设计模块  
-│   ├── DNN_ensemble.py   # 深度神经网络集成模型
-│   ├── base_models.py    # 基础模型定义
-│   └── architectures/    # 模型架构实现
-└── training/             # 模型训练模块
-    ├── trainer.py        # 训练器实现
-    ├── loss_functions.py # 损失函数定义
-    └── optimization.py   # 优化策略
+├── data/                  # Data processing module
+│   ├── dataset.py        # Dataset definition and loading
+│   └── datasplit.py      # datasplit
+├── models/               # Model design module  
+│   ├── DNN_ensemble.py   # single-output Deep neural network ensemble
+│   ├── MDNN_model.py     # mutil-output Deep neural network ensemble
+│   ├── ML_baseline.py    # Base model definitions, including PLSR、XGBoost、RF、SVR、MPLSR.
+│   └── MTI_model.py      # our mutil-output inversion model
+└── training/             # Training module
+    ├── trainer.py        # Training pipeline
 ```
 
-### 📁 工具模块
+### 📁 Utility Modules
 
 ```
 utils/
-├── plot_setting.py       # 绘图基础配置
-├── metrics.py           # 评估指标计算
-├── visualization.py     # 数据可视化工具
-└── io.py               # 输入输出处理
+├── plot_setting.py       # Plotting configuration
+├── baseset.py            # logger and seed set
 ```
 
-### 📁 执行脚本
+### 📁 Execution Scripts
 
 ```
 scripts/
@@ -47,34 +44,37 @@ scripts/
 └── data_analysis.py                # 数据分析脚本
 ```
 
-### 详细功能说明
+### Detailed Functionality
 
 #### 🔬 数据模块 (`data/`)
-- **水稻数据集**: 包含水稻在不同生长阶段的高光谱反射率数据
-- **番茄数据集**: 包含番茄叶片的高光谱反射率测量数据
+- **Rice dataset**: Hyperspectral reflectance data of rice across different growth stages.
+- **Tomato dataset**: Hyperspectral reflectance measurements of tomato leaves.
 
-#### 🧠 模型模块 (`mt_hyperspectral/`)
-- **数据处理**: 高光谱数据预处理、特征提取和数据增强
-- **模型设计**: 深度学习模型架构，包括DNN、CNN、Transformer等
-- **训练模块**: 模型训练策略、优化算法和验证流程
+🧠 模型模块 (`mt_hyperspectral/`)
 
-#### 🛠️ 工具模块 (`utils/`)
-- **绘图工具**: 统一的图表样式设置和可视化函数
-- **评估指标**: R²、RMSE、RPD等模型性能评估指标
-- **数据处理**: 文件读写、数据格式转换等通用工具
+- **Data processing**: Hyperspectral preprocessing, feature extraction, and data augmentation.
+- **Model design**: Deep learning architectures including DNN, CNN, and Transformer.
+- **Training module**: Training strategies, optimization algorithms, and validation workflows.
 
-#### ⚡ 执行脚本 (`scripts/`)
-- **基线模型**: DNN基础模型的训练和评估
-- **迁移学习**: 跨作物物种的知识迁移实验
-- **模型评估**: 预训练模型的性能测试和对比分析
-- **数据分析**: 数据集统计分析和特征可视化
+#### 🛠️ Utility Module (`utils/`)
 
-### 使用流程
+- **Plotting tools**: Standardized chart styles and visualization functions.
+- **Evaluation metrics**: R², RMSE, RPD, and other performance indicators.
+- **Data utilities**: File I/O, format conversion, and general-purpose tools.
 
-1. **数据准备**: 将高光谱数据放置在 `data/` 对应子目录中
-2. **模型训练**: 使用 `scripts/` 中的脚本进行模型训练
-3. **结果分析**: 利用 `utils/` 中的工具进行结果可视化和分析
-4. **模型部署**: 基于训练好的模型进行预测和应用
+#### ⚡ Execution Scripts (`scripts/`)
+
+- **Baseline models**: Training and evaluation of DNN baseline models.
+- **Transfer learning**: Cross-crop knowledge transfer experiments.
+- **Model evaluation**: Performance testing and comparative analysis of pretrained models.
+- **Data analysis**: Dataset statistics and feature visualization.
+
+### Workflow
+
+1. **Data preparation**: Place hyperspectral datasets into the appropriate subdirectories under `data/`.
+2. **Model training**: Train models using the scripts in `scripts/`.
+3. **Result analysis**: Use the utilities in `utils/` for visualization and analysis.
+4. **Model deployment**: Apply trained models for prediction and applications.
 
 1、Specifically, we developed **MTI-Net**, a lightweight multi-task inversion network that simultaneously retrieves multiple PPPs in rice and tomato。
 
