@@ -10,6 +10,4 @@ Pixel-level High-throughput Estimation of Crop Photosynthetic Phenotyping Parame
 
 4、We evaluated transferability between tomato and rice by freezing the encoder layers and fine-tuning only the decoder in **MT_evaluate_full_small_sample.py**.
 
-5、 used for 
-
-To further assess generalization, we conducted a cross-validation experiment (**MT_evaluate_full_small_sample.py**) where models trained on pixel-level spectra were tested on canopy-level averaged spectra.
+5、 To further assess generalization, we conducted a cross-validation experiment (**MT_evaluate_full_small_sample.py**) where models trained on pixel-level spectra were tested on canopy-level averaged spectra.
