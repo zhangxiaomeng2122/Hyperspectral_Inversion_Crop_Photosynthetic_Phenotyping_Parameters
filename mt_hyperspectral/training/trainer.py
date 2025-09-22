@@ -11,9 +11,7 @@ import time
 import pandas as pd
 import torch.nn.functional as F
 import torch.optim as optim
-import matplotlib.pyplot as plt
 from torch.cuda.amp import GradScaler, autocast
-from mt_hyperspectral.models.DNN_ensemble import calculate_rpd
 
 def evaluate_model(model, dataloader, device, num_tasks):
     """评估模型在给定数据集上的性能"""

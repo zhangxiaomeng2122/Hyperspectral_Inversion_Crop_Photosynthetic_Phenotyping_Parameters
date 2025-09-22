@@ -3,16 +3,11 @@ import torch
 import numpy as np
 import pandas as pd
 import pickle
-import argparse
-from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import r2_score, mean_squared_error  # 添加缺失的指标计算函数导入
 from sklearn.model_selection import train_test_split  # 添加数据集拆分函数
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
-import seaborn as sns
-import logging
 import datetime
-import time
 import json
 import torch.nn as nn
 
@@ -23,7 +18,6 @@ sys.path.append(root_dir)
 from utils.plot_setting import setfig
 
 from mt_hyperspectral.data.dataset import HSIDataset
-from mt_hyperspectral.data.preprocessing import apply_pca_preprocessing
 from mt_hyperspectral.models.DNN_ensemble import create_ensemble_model
 from mt_hyperspectral.utils.metrics import evaluate_single_model
 from mt_hyperspectral.training.trainer import safe_format
